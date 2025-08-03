@@ -158,12 +158,8 @@ const LoginForm: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setRole('admin')}
-                      className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-colors ${
-                        role === 'admin'
-                          ? 'bg-white text-blue-600 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
+                      disabled
+                      className="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md bg-gray-100 text-gray-400 cursor-not-allowed"
                     >
                       <UserCog className="h-4 w-4" />
                       <span>Admin</span>
@@ -233,8 +229,6 @@ const LoginForm: React.FC = () => {
               {isLogin ? "Don't have an account? Register here" : "Already have an account? Sign in"}
             </button>
           </div>
-
-          
         </div>
       </div>
     </div>
