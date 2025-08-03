@@ -234,12 +234,7 @@ const LoginForm: React.FC = () => {
             </button>
           </div>
 
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <h4 className="text-sm font-medium text-blue-900 mb-2">Firebase Setup Required:</h4>
-            <p className="text-xs text-blue-700">
-              Replace the Firebase configuration in <code>src/config/firebase.ts</code> with your actual project details from the Firebase Console.
-            </p>
-          </div>
+          
         </div>
       </div>
     </div>
