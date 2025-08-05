@@ -13,6 +13,7 @@ import MaintenanceManagement from './components/Maintenance/MaintenanceManagemen
 import OwnerDetails from './components/Owners/OwnerDetails';
 import TenantDetails from './components/Tenants/TenantDetails';
 import VerificationSystem from './components/Verification/VerificationSystem';
+import PaymentForm from './components/payment/PaymentForm';
 
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -25,7 +26,7 @@ const Dashboard: React.FC = () => {
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Welcome back, {currentUser?.name}!
+                Welcome back, {currentUser?.name || 'User'}!
               </h2>
               <p className="text-gray-600">
                 Here's what's happening in SHUBH VILLA SOCIETY today.
@@ -67,6 +68,15 @@ const Dashboard: React.FC = () => {
                       <div className="text-sm text-gray-600">Manage owners</div>
                     </button>
                   )}
+                  {!currentUser?.role || currentUser?.role !== 'admin' ? (
+                    <button
+                      onClick={() => setActiveTab('payments')}
+                      className="p-4 bg-yellow-50 hover:bg-yellow-100 rounded-lg text-left transition-colors"
+                    >
+                      <div className="text-yellow-600 font-medium">Pay Maintenance</div>
+                      <div className="text-sm text-gray-600">Submit your bill</div>
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -82,9 +92,9 @@ const Dashboard: React.FC = () => {
         return <VerificationSystem />;
       case 'payments':
         return (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Payment Management</h2>
-            <p className="text-gray-600">Advanced payment tracking and analytics coming soon...</p>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 max-w-xl mx-auto">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Pay Maintenance</h2>
+            <PaymentForm billId="manual-entry" />
           </div>
         );
       case 'reports':
@@ -104,9 +114,7 @@ const Dashboard: React.FC = () => {
       <Header />
       <div className="flex">
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-        <main className="flex-1 p-8">
-          {renderContent()}
-        </main>
+        <main className="flex-1 p-8">{renderContent()}</main>
       </div>
     </div>
   );
