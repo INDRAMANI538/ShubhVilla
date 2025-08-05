@@ -7,7 +7,9 @@ import {
   updateDoc,
   deleteDoc,
   doc,
-  Timestamp
+  Timestamp,
+  query,
+  where,
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
@@ -60,34 +62,78 @@ const MaintenanceManagement: React.FC = () => {
     remarks: ''
   });
 
+  // Fetch owners (for admin form select)
   useEffect(() => {
-    const fetchOwnersAndRecords = async () => {
-      const ownerSnapshot = await getDocs(collection(db, 'owners'));
-      const ownersData = ownerSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...(doc.data() as Omit<Owner, 'id'>)
-      }));
-      setOwners(ownersData);
+    if (!isAdmin) return;
+    const fetchOwners = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'owners'));
+        const ownersList = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...(doc.data() as Owner)
+        }));
+        setOwners(ownersList);
+      } catch (error) {
+        console.error('Error fetching owners:', error);
+      }
+    };
+    fetchOwners();
+  }, [isAdmin]);
 
-      const recordSnapshot = await getDocs(collection(db, 'maintenanceRecords'));
-      const recordsData = recordSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...(doc.data() as MaintenanceRecord)
-      }));
+  // Fetch records based on user role
+  useEffect(() => {
+    const fetchRecords = async () => {
+      if (!currentUser?.email) return;
 
-      if (!isAdmin && currentUser?.uid) {
-        const userOwner = ownersData.find(o => o.uid === currentUser.uid);
-        if (userOwner) {
-          setRecords(recordsData.filter(r => r.ownerId === userOwner.id));
+      try {
+        if (isAdmin) {
+          // Admin: get all records
+          const snapshot = await getDocs(collection(db, 'maintenanceRecords'));
+          const allRecords = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...(doc.data() as MaintenanceRecord)
+          }));
+          setRecords(allRecords);
         } else {
-          setRecords([]);
+          // Non-admin: get current user's name from users collection
+          const userQ = query(collection(db, 'users'), where('email', '==', currentUser.email));
+          const userSnap = await getDocs(userQ);
+          if (userSnap.empty) {
+            setRecords([]);
+            return;
+          }
+          const userName = userSnap.docs[0].data().name;
+
+          // Get owner's record by name
+          const ownerQ = query(collection(db, 'owners'), where('name', '==', userName));
+          const ownerSnap = await getDocs(ownerQ);
+          if (ownerSnap.empty) {
+            setRecords([]);
+            return;
+          }
+          const ownerData = ownerSnap.docs[0].data();
+
+          // Get maintenance records for that ownerName or flatNumber (choose one consistent filter)
+          const recordsQ = query(
+            collection(db, 'maintenanceRecords'),
+            where('ownerName', '==', userName)
+          );
+          const recordsSnap = await getDocs(recordsQ);
+
+          const userRecords = recordsSnap.docs.map(doc => ({
+            id: doc.id,
+            ...(doc.data() as MaintenanceRecord)
+          }));
+
+          setRecords(userRecords);
         }
-      } else {
-        setRecords(recordsData);
+      } catch (error) {
+        console.error('Error fetching maintenance records:', error);
+        setRecords([]);
       }
     };
 
-    fetchOwnersAndRecords();
+    fetchRecords();
   }, [currentUser, isAdmin]);
 
   useEffect(() => {
@@ -106,6 +152,8 @@ const MaintenanceManagement: React.FC = () => {
 
   const handleAddOrEdit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) return; // Only admin can add/edit
+
     const owner = owners.find(o => o.id === formData.ownerId);
     if (!owner) return;
 
@@ -138,6 +186,7 @@ const MaintenanceManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (!isAdmin) return; // Only admin can delete
     if (window.confirm('Are you sure you want to delete this bill?')) {
       await deleteDoc(doc(db, 'maintenanceRecords', id));
       setRecords(prev => prev.filter(r => r.id !== id));
@@ -145,6 +194,7 @@ const MaintenanceManagement: React.FC = () => {
   };
 
   const handleMarkPaid = async (id: string) => {
+    if (!isAdmin) return; // Only admin can mark paid
     await updateDoc(doc(db, 'maintenanceRecords', id), { status: 'paid' });
     setRecords(prev =>
       prev.map(r => (r.id === id ? { ...r, status: 'paid' } : r))
@@ -152,6 +202,8 @@ const MaintenanceManagement: React.FC = () => {
   };
 
   const filteredRecords = records.filter(r => {
+    if (!isAdmin) return true; // Non-admin see only their records (already filtered)
+
     const searchMatch = `${r.flatNumber} ${r.ownerName}`.toLowerCase().includes(searchTerm.toLowerCase());
     const monthMatch = filters.month ? r.month.toLowerCase() === filters.month.toLowerCase() : true;
     const yearMatch = filters.year ? r.year.toString() === filters.year : true;
@@ -208,9 +260,10 @@ const MaintenanceManagement: React.FC = () => {
         </form>
       )}
 
-      {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-        <input type="text" placeholder="Search by name or flat" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="col-span-2 border p-2 rounded" />
+        {isAdmin && (
+          <input type="text" placeholder="Search by name or flat" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="col-span-2 border p-2 rounded" />
+        )}
         <input type="text" placeholder="Month" value={filters.month} onChange={e => setFilters({ ...filters, month: e.target.value })} className="border p-2 rounded" />
         <input type="text" placeholder="Year" value={filters.year} onChange={e => setFilters({ ...filters, year: e.target.value })} className="border p-2 rounded" />
         <select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })} className="border p-2 rounded">
@@ -267,6 +320,13 @@ const MaintenanceManagement: React.FC = () => {
                 </td>
               </tr>
             ))}
+            {filteredRecords.length === 0 && (
+              <tr>
+                <td colSpan={7} className="text-center py-4 text-gray-500">
+                  No records found.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
